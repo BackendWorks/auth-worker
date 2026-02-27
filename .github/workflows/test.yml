@@ -27,7 +27,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Run unit tests with coverage
-        run: npm run test:cov
+        run: npm run test
         env:
           NODE_ENV: test
 
