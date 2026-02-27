@@ -1,13 +1,51 @@
-FROM node:22-alpine
+# Multi-stage build for optimal image size
+FROM node:lts-alpine AS base
 
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat wget openssl
 WORKDIR /app
 
-COPY package*.json ./
+# Build-time token for GitHub Packages — never stored in the final image
+ARG NODE_AUTH_TOKEN
+ENV NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN}
 
-RUN npm ci
+# Copy package files
+COPY .npmrc package.json yarn.lock* ./
 
+# Install dependencies, then remove .npmrc so the token is not cached
+RUN yarn --frozen-lockfile --production=false && rm -f .npmrc
+
+# Build the source code
+FROM base AS builder
+RUN apk add --no-cache wget openssl
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN npm run build
+# Build application
+RUN yarn build
 
-CMD ["node", "dist/main"]
+# Production image, copy all the files and run the app
+FROM base AS runner
+RUN apk add --no-cache wget openssl
+WORKDIR /app
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nestjs
+
+# Copy necessary files from builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/yarn.lock ./yarn.lock
+
+# Copy node_modules from deps stage (production only)
+COPY --from=deps /app/node_modules ./node_modules
+
+# Change ownership to nestjs user
+RUN chown -R nestjs:nodejs /app
+USER nestjs
+
+CMD ["yarn", "start"]
+
