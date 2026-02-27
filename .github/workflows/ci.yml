@@ -1,34 +1,36 @@
 name: CI
 
 on:
-    push:
-        branches: [main, develop]
-    pull_request:
-        branches: [main, develop]
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
 
 jobs:
-    lint-and-build:
-        name: Lint, Format & Build
-        runs-on: ubuntu-latest
+  lint-and-build:
+    name: Lint, Format & Build
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Setup Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: npm
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
 
-            - name: Install dependencies
-              run: npm ci
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-            - name: Lint
-              run: npm run lint
+      - name: Lint
+        run: npm run lint
 
-            - name: Format check
-              run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
+      - name: Format check
+        run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
 
-            - name: Build
-              run: npm run build
+      - name: Build
+        run: npm run build
